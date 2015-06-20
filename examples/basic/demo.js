@@ -1,7 +1,7 @@
 /* jslint node: true */
 "use strict";
 
-var Yadda = require('yadda');
+var Yadda = require('../../lib/index.js');
 var library = require('./lib/bottles-library');
 
 new Yadda.createInstance(library).run([
