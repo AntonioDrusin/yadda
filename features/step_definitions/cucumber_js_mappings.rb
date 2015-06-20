@@ -64,7 +64,9 @@ module CucumberJsMappings
   end
 
   def write_pending_mapping(step_name)
-    append_step_definition(step_name, "callback.pending();")
+    append_support_code <<-EOF
+      .define(/#{step_name}/)
+    EOF
   end
 
   def write_asynchronous_pending_mapping(step_name)
