@@ -28,7 +28,6 @@ require 'json'
 module CucumberJsMappings
   STEP_DEFINITIONS_FILE                   = "features/yadda_steps.js"
   FEATURE_FILE                            = "features/a_feature.feature"
-  FEATURE_FILE_DIR                        = "features/a_feature.feature"
   YADDA_TEST_FILE                         = "yadda_test.js"
   WORLD_VARIABLE_LOG_FILE                 = "world_variable.log"
   WORLD_FUNCTION_LOG_FILE                 = "world_function.log"
@@ -44,7 +43,6 @@ module CucumberJsMappings
   end
 
   def run_feature
-
     write_main_step_definitions_file
     write_yadda_test_file
     run_simple "node #{YADDA_TEST_FILE}", false
@@ -159,18 +157,14 @@ EOF
 
   def write_calculator_code
     rpn_calculator_code = get_file_contents('../support/rpn_calculator.js')
-    create_dir 'features/support'
-    write_file 'features/support/rpn_calculator.js', rpn_calculator_code
+    create_dir 'support'
+    write_file 'support/rpn_calculator.js', rpn_calculator_code
   end
 
   def write_mappings_for_calculator
     calculator_steps = get_file_contents('./calculator_steps.js')
-    write_file 'features/step_definitions/calculator_steps.js', calculator_steps
-    append_support_code <<-EOF
-var RpnCalculator   = require('../support/rpn_calculator');
-var calculatorSteps = require('./calculator_steps');
-calculatorSteps.initialize.call(this, RpnCalculator);
-EOF
+    write_file 'features/calculator_steps.js', calculator_steps
+    @extra_step_definitions_file = 'features/calculator_steps.js'
   end
 
   def write_world_variable_with_numeric_value(value)
@@ -277,7 +271,7 @@ EOF
   end
 
   def assert_undefined_scenario
-    assert_partial_output("1 scenario (1 undefined)", all_output)
+    assert_partial_output("<-- Undefined Step", all_output)
     assert_success true
   end
 
@@ -409,7 +403,7 @@ EOF
         return new Yadda.Library()
     EOF
 
-    append_to_file(STEP_DEFINITIONS_FILE, support_code);
+    append_to_file(STEP_DEFINITIONS_FILE, @support_code);
 
     append_to_file STEP_DEFINITIONS_FILE, <<-EOF
       })();
@@ -421,8 +415,7 @@ EOF
       var Yadda = require('../../lib/index.js');
       var fs = require('fs');
       var parser = new Yadda.parsers.FeatureParser();
-
-      var library = require('./#{STEP_DEFINITIONS_FILE}');
+      var library = require('./#{@extra_step_definitions_file || STEP_DEFINITIONS_FILE}');
       var yadda = new Yadda.createInstance(library);
 
       var text = fs.readFileSync('#{FEATURE_FILE}', 'utf8');
@@ -431,30 +424,34 @@ EOF
       var count = 0;
       var passed = 0;
       var failed = 0;
+      var undefined = 0;
       feature.scenarios.forEach(function(scenario) {
         count += 1;
         try {
-          yadda.run(scenario.steps, null, function(a,b,c) {
+          yadda.run(scenario.steps, null, function() {
             passed++;
-            console.log(a);
-            console.log(b);
           });
         }
         catch ( err ) {
-          console.log(err)
-          failed++;
+          console.log(err);
+          if ( err.toString().indexOf('<-- Undefined Step') > -1 )
+          {
+            undefined++;
+          }
+          else {
+            failed++;
+          }
         }
       });
 
-      if ( failed != 0 )
-      {
-        console.log(count + ' scenario (' + failed + ' failed)');
-        process.exit(1)
-      }
-      else
-      {
-        console.log(count + ' scenario (' + passed + ' passed)');
-      }
+      var l = count + ' scenario (';
+      l += !!passed ? passed + ' passed' : '';
+      l += !!failed ? failed + ' failed' : '';
+      l += !!undefined ? undefined + ' undefined' : '';
+      l += ')';
+      console.log(l)
+
+      if (!!failed) process.exit(1);
     EOF
   end
 
